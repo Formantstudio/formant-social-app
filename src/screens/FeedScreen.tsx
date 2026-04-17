@@ -4,6 +4,7 @@ import {
   FlatList,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { collection, onSnapshot, orderBy, query, limit } from "firebase/firestore";
@@ -35,6 +36,9 @@ export default function FeedScreen() {
   const [loading, setLoading]     = useState(true);
   const currentUid = auth.currentUser?.uid ?? null;
   const following  = useFollowing(currentUid);
+  const { width }  = useWindowDimensions();
+  const isTablet   = width >= 600;
+  const feedWidth  = isTablet ? Math.min(width, 680) : width;
 
   useEffect(() => {
     const q = query(
@@ -72,8 +76,9 @@ export default function FeedScreen() {
             ? <AdCard />
             : <PostCard post={item as Post} following={following} />
         }
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, isTablet && { alignSelf: "center", width: feedWidth }]}
         showsVerticalScrollIndicator={false}
+        style={isTablet && { alignSelf: "center", width: feedWidth }}
       />
     </View>
   );

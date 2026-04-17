@@ -21,7 +21,8 @@
         "backgroundColor": "#0a0a0a"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.formant.formantsocialapp"
     },
     "web": {
       "favicon": "./assets/logo.png"
@@ -34,6 +35,11 @@
           "iosAppId": "ca-app-pub-1246706747108680~4908755510"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1771f464-156f-455d-b744-29d91b32ca6e"
+      }
+    }
   }
 }

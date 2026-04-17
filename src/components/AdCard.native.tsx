@@ -1,8 +1,10 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { BannerAd, BannerAdSize, TestIds } from "react-native-google-mobile-ads";
 
-const AD_UNIT_ID = process.env.EXPO_PUBLIC_ADMOB_BANNER || TestIds.BANNER;
+const AD_UNIT_ID = Platform.OS === "ios"
+  ? (process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS || TestIds.BANNER)
+  : (process.env.EXPO_PUBLIC_ADMOB_BANNER_ANDROID || TestIds.BANNER);
 
 export default function AdCard() {
   return (

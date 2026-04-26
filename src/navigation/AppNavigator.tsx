@@ -6,15 +6,24 @@ import { Ionicons } from "@expo/vector-icons";
 
 import LoginScreen from "../screens/LoginScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
+import VerifyEmailScreen from "../screens/VerifyEmailScreen";
 import FeedScreen from "../screens/FeedScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import UserProfileScreen from "../screens/UserProfileScreen";
+import PostDetailScreen from "../screens/PostDetailScreen";
+import CreatePostScreen from "../screens/CreatePostScreen";
 import { useAuthState } from "../hooks/useAuthState";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { Post } from "../components/PostCard";
 
 export type RootStackParamList = {
-  Main:       undefined;
-  Onboarding: undefined;
-  Login:      undefined;
+  Main:        undefined;
+  Onboarding:  undefined;
+  Login:       undefined;
+  VerifyEmail: undefined;
+  UserProfile: { uid: string };
+  PostDetail:  { post: Post };
+  CreatePost:  undefined;
 };
 
 export type TabParamList = {
@@ -49,22 +58,33 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { user, loading: authLoading }       = useAuthState();
-  const { profile, loading: profileLoading } = useUserProfile(user?.uid ?? null);
+  const { user, loading: authLoading, emailVerified } = useAuthState();
+  const { profile, loading: profileLoading }          = useUserProfile(user?.uid ?? null);
 
   if (authLoading || (user && profileLoading)) return null;
 
-  const needsOnboarding = user && !profile?.displayName;
+  const needsVerification = user && !emailVerified;
+  const needsOnboarding   = user && emailVerified && !profile?.displayName;
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: "fade" }}>
         {!user ? (
-          <Stack.Screen name="Login"      component={LoginScreen} />
+          <Stack.Screen name="Login"       component={LoginScreen} />
+        ) : needsVerification ? (
+          <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
         ) : needsOnboarding ? (
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="Onboarding"  component={OnboardingScreen} />
         ) : (
-          <Stack.Screen name="Main"       component={MainTabs} />
+          <>
+            <Stack.Screen name="Main"        component={MainTabs} />
+            <Stack.Screen name="UserProfile" component={UserProfileScreen}
+              options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="PostDetail"  component={PostDetailScreen}
+              options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="CreatePost"  component={CreatePostScreen}
+              options={{ animation: "slide_from_bottom" }} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

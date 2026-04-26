@@ -12,17 +12,9 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from "firebase/auth";
-import {
-  doc,
-  writeBatch,
-  serverTimestamp,
-  increment,
-} from "firebase/firestore";
+import { doc, writeBatch, serverTimestamp, increment } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
+import { signIn, signUp, normalizeAuthError, authErrorMessage } from "../lib/auth";
 import { TYLER_UID } from "../lib/constants";
 import { ALL_PET_UIDS } from "../lib/petUsers";
 import LogoAnimation from "../components/LogoAnimation";
@@ -68,13 +60,11 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       if (isSignUp) {
-        const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        const cred = await signUp(email, password);
         const uid  = cred.user.uid;
 
-        // Filter out any unseeded placeholder UIDs
         const petUids = ALL_PET_UIDS.filter(p => p !== "REPLACE_AFTER_SEED");
 
-        // Create user doc + auto-follow Tyler + all pets in one batch
         const batch = writeBatch(db);
         batch.set(doc(db, "users", uid), {
           uid,
@@ -85,7 +75,6 @@ export default function LoginScreen() {
           followersCount: 0,
           createdAt:      serverTimestamp(),
         });
-        // Follow Tyler
         batch.set(doc(db, "users", uid, "following", TYLER_UID), {
           uid: TYLER_UID, followedAt: serverTimestamp(),
         });
@@ -95,7 +84,6 @@ export default function LoginScreen() {
         batch.update(doc(db, "users", TYLER_UID), {
           followersCount: increment(1),
         });
-        // Auto-follow each pet
         for (const petUid of petUids) {
           batch.set(doc(db, "users", uid, "following", petUid), {
             uid: petUid, followedAt: serverTimestamp(),
@@ -109,10 +97,11 @@ export default function LoginScreen() {
         }
         await batch.commit();
       } else {
-        await signInWithEmailAndPassword(auth, email.trim(), password);
+        await signIn(email, password);
       }
     } catch (err: any) {
-      setError(err.message || "Authentication failed.");
+      const code = err?.code ?? "";
+      setError(authErrorMessage(normalizeAuthError(code)));
     } finally {
       setLoading(false);
     }

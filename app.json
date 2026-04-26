@@ -39,7 +39,8 @@
           "iosAppId": "ca-app-pub-1246706747108680~2973691468"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

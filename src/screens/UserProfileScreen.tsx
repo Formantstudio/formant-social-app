@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Pressable,
@@ -10,11 +11,13 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { auth } from "../lib/firebase";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../lib/firebase";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useFollowing } from "../hooks/useFollowing";
 import { useUserPosts } from "../hooks/useUserPosts";
 import { toggleFollow } from "../lib/followUser";
+import { trackEvent } from "../lib/telemetry";
 import PostCard, { Post } from "../components/PostCard";
 import AdCard from "../components/AdCard";
 import { RootStackParamList } from "../navigation/AppNavigator";
@@ -57,10 +60,32 @@ export default function UserProfileScreen({ route, navigation }: Props) {
     setFollowBusy(true);
     try {
       await toggleFollow(currentUid, uid, isFollowing);
+      if (!isFollowing) trackEvent("follow", { targetUid: uid });
     } finally {
       setFollowBusy(false);
     }
   }, [currentUid, uid, isFollowing]);
+
+  const reportUser = useCallback(() => {
+    if (!currentUid) return;
+    const doReport = async (reason: string) => {
+      await addDoc(collection(db, "reports"), {
+        type: "user",
+        reportedUid: uid,
+        reportedBy: currentUid,
+        reason,
+        createdAt: serverTimestamp(),
+      });
+      trackEvent("report_user", { reportedUid: uid, reason });
+      Alert.alert("Reported", "Thanks — we'll review this account.");
+    };
+    Alert.alert("Report User", "Why are you reporting this account?", [
+      { text: "Spam / Bot",         onPress: () => doReport("spam") },
+      { text: "Hate / Harassment",  onPress: () => doReport("harassment") },
+      { text: "Impersonation",      onPress: () => doReport("impersonation") },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }, [currentUid, uid]);
 
   const initial = (profile?.displayName || "?")[0].toUpperCase();
   const isSystem = (profile as any)?.isSystemAccount === true;
@@ -124,6 +149,7 @@ export default function UserProfileScreen({ route, navigation }: Props) {
           <Pressable onPress={() => navigation.goBack()} style={styles.back}>
             <Ionicons name="arrow-back" size={22} color="#e8f1f2" />
           </Pressable>
+          <Text style={styles.topBarTitle} />
         </View>
         <View style={styles.center}>
           <ActivityIndicator color={ACCENT} />
@@ -141,6 +167,11 @@ export default function UserProfileScreen({ route, navigation }: Props) {
         <Text style={styles.topBarTitle} numberOfLines={1}>
           {profile?.displayName || "Profile"}
         </Text>
+        {currentUid && (
+          <Pressable onPress={reportUser} style={styles.overflow}>
+            <Ionicons name="ellipsis-horizontal" size={20} color="#555" />
+          </Pressable>
+        )}
       </View>
 
       <FlatList
@@ -174,6 +205,7 @@ const styles = StyleSheet.create({
   topBar:           { paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: "#1a1a1a", flexDirection: "row", alignItems: "center", gap: 12 },
   topBarTitle:      { color: "#e8f1f2", fontSize: 16, fontWeight: "700", flex: 1 },
   back:             { padding: 4 },
+  overflow:         { padding: 4 },
   center:           { flex: 1, justifyContent: "center", alignItems: "center" },
   header:           { alignItems: "center", paddingVertical: 28, paddingHorizontal: 24 },
   avatarWrap:       { marginBottom: 14 },

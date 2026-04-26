@@ -20,6 +20,7 @@ import { useFollowing } from "../hooks/useFollowing";
 import { normalizePost } from "../lib/normalizePost";
 import { ALL_PET_UIDS } from "../lib/petUsers";
 import { TYLER_UID } from "../lib/constants";
+import { preloadInterstitial, showInterstitialIfReady } from "../lib/interstitialAd";
 import { RootStackParamList } from "../navigation/AppNavigator";
 
 type FeedItem = Post | { id: string; type: "ad" };
@@ -49,6 +50,8 @@ export default function FeedScreen() {
   const { width }   = useWindowDimensions();
   const isTablet    = width >= 600;
   const feedWidth   = isTablet ? Math.min(width, 680) : width;
+
+  useEffect(() => { preloadInterstitial(); }, []);
 
   useEffect(() => {
     const q = query(
@@ -96,7 +99,11 @@ export default function FeedScreen() {
         renderItem={({ item }) =>
           item.type === "ad"
             ? <AdCard />
-            : <PostCard post={item as Post} following={following} />
+            : <PostCard
+                post={item as Post}
+                following={following}
+                onPostPress={navigate => showInterstitialIfReady(navigate)}
+              />
         }
         contentContainerStyle={[styles.list, isTablet && { alignSelf: "center", width: feedWidth }]}
         showsVerticalScrollIndicator={false}

@@ -54,6 +54,31 @@ already exported from firebase.ts. It needs to be wired up correctly and securel
 - If returning user → route to Feed
 - Prevents a Google user from skipping onboarding
 
+⚠️ **TOS/Telemetry consent bypass — must fix before shipping Google Sign-In**
+
+Current routing in AppNavigator.tsx:
+```ts
+const needsOnboarding = user && emailVerified && !profile?.displayName;
+```
+
+Google accounts (and any OAuth provider) carry a display name automatically.
+`profile?.displayName` will already be populated on first login, so
+`needsOnboarding` evaluates to `false` — user lands in MainTabs without ever
+seeing the TOS or telemetry PSA.
+
+**Fix:** Gate onboarding on `tosAcceptedAt` (written to Firestore on TOS accept),
+not on `displayName`. `displayName` only gates the profile setup step.
+
+```ts
+const needsOnboarding = user && emailVerified && !profile?.tosAcceptedAt;
+```
+
+Then inside OnboardingScreen, step 1 (profile setup) pre-fills displayName from
+the Google account so the user just confirms rather than typing it fresh.
+
+This fix must land in the same PR as Google Sign-In — implementing Sign-In without
+it creates a consent bypass for every Google user.
+
 ### Phase 3 — Trust model
 
 - Google users are pre-verified (Google already confirmed the email)

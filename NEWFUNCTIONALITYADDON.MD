@@ -225,7 +225,7 @@ npx expo install expo-auth-session expo-web-browser
 
 ---
 
-### 10. Search Screen
+### 10. Search Screen ✅ Live
 
 **What:** Search users by display name or username handle.
 
@@ -241,7 +241,7 @@ npx expo install expo-auth-session expo-web-browser
 
 ---
 
-### 11. Explore / Trending Tab
+### 11. Explore / Trending Tab ✅ Live
 
 **What:** Discovery feed — posts from accounts you don't follow, or top posts by likes.
 
@@ -255,7 +255,7 @@ Toggle between modes with a segmented control at the top.
 
 ---
 
-### 12. Edit Profile Screen
+### 12. Edit Profile Screen ✅ Live
 
 **What:** Edit display name, bio, username, avatar from the profile screen.
 Currently only avatar can be changed from `ProfileScreen` — display name and bio can't be edited after onboarding.
@@ -300,7 +300,7 @@ Full-screen modal on tap.
 
 ---
 
-### 15. Repost
+### 15. Repost ✅ Live
 
 **What:** Share someone else's post to your own feed (like a retweet/boost).
 
@@ -325,9 +325,9 @@ Full-screen modal on tap.
 
 ---
 
-### 16. Settings Screen
+### 16. Settings Screen ✅ Live
 
-**What:** App preferences. Currently there is no settings surface.
+**What:** App preferences.
 
 **Options:**
 - Push notifications on/off (per type: likes, comments, follows)
@@ -339,7 +339,7 @@ Full-screen modal on tap.
 
 ---
 
-### 17. Onboarding Flow Upgrade
+### 17. Onboarding Flow Upgrade ✅ Live
 
 **What:** Current onboarding asks only for display name + photo.
 Add username + bio fields, and show a "suggested accounts to follow" step (Tyler + pets are auto-followed, but let users pick a few music channels too).

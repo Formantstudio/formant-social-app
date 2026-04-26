@@ -17,7 +17,12 @@
 | Profile (own) | `src/screens/ProfileScreen.tsx` | ✅ Live | Avatar (tap to change), display name, email, following/followers counts, sign out. |
 | User Profile | `src/screens/UserProfileScreen.tsx` | ✅ Live | View any user's profile. Follow/unfollow button, stats, their post feed. AdMob banner pinned bottom. System account badge for Formant channels. |
 | Post Detail | `src/screens/PostDetailScreen.tsx` | ✅ Live | Full post view + comments thread. Comment input bar pinned bottom. Increment `commentCount` on submit. AdMob MEDIUM_RECTANGLE between post and comments. |
-| Create Post | `src/screens/CreatePostScreen.tsx` | ✅ Live | Text post (280 char) + YouTube URL detection (auto-fetches title/thumbnail via YouTube API). Post button disabled until content entered. |
+| Create Post    | `src/screens/CreatePostScreen.tsx`   | ✅ Live | Text post (280 char) + YouTube URL detection (auto-fetches title/thumbnail via YouTube API). Post button disabled until content entered. |
+| Explore        | `src/screens/ExploreScreen.tsx`      | ✅ Live | Trending (orderBy likes desc) and New (orderBy createdAt desc) modes. Segmented control toggle. AdMob every 5 posts. |
+| Search         | `src/screens/SearchScreen.tsx`       | ✅ Live | Search users by `displayName_lower` prefix query. Debounced 300ms. Follow/unfollow inline. Tap result → UserProfile. |
+| Edit Profile   | `src/screens/EditProfileScreen.tsx`  | ✅ Live | Edit display name, @username (uniqueness checked), bio, avatar. Writes `displayName_lower` for search. |
+| Settings       | `src/screens/SettingsScreen.tsx`     | ✅ Live | Telemetry toggle (writes to Firestore), change password (reset email), sign out, delete account, app version. |
+| Feedback       | `src/screens/FeedbackScreen.tsx`     | ✅ Live | Bug / Suggestion / Other category picker + 500-char text. Writes to `feedback/` collection. Success state on send. |
 
 ---
 
@@ -44,7 +49,7 @@ Logged in, ready           → MainTabs (Feed + Profile)
                               └─ push → CreatePostScreen (slide from bottom)
 ```
 
-Bottom tabs: **Feed** (home icon) | **Profile** (person icon)
+Bottom tabs: **Feed** | **Explore** | **Search** | **Profile**
 
 ---
 
@@ -70,6 +75,7 @@ Bottom tabs: **Feed** (home icon) | **Profile** (person icon)
 | `src/lib/firebase.ts` | Firebase app init: auth (with AsyncStorage persistence), Firestore, Storage, AppCheck (web only). |
 | `src/lib/constants.ts` | `TYLER_UID` |
 | `src/lib/petUsers.ts` | `PET_UIDS` map + `ALL_PET_UIDS` array |
+| `src/lib/telemetry.ts` | `trackEvent(event, props)` — writes to `telemetry/{uid}/events`, caps at 200 entries, no-ops if consent false. `setTelemetryConsent(bool)` sets consent state. |
 
 ---
 
@@ -142,10 +148,24 @@ YouTube channel accounts (Formant Audio, Hospital Records, Perfect Circuit) inge
 
 - AdMob `react-native-google-mobile-ads` v16.3.2
 - `EXPO_PUBLIC_ADMOB_BANNER_ANDROID` / `EXPO_PUBLIC_ADMOB_BANNER_IOS` in `.env`
-- Feed: MEDIUM_RECTANGLE banner every 3–6 posts
+- `EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID` / `EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS` in `.env`
+- Feed: MEDIUM_RECTANGLE every 3–6 posts; interstitial fires every 4th PostDetail open (`tapCount % 4`)
+- Profile (own): BANNER pinned bottom
 - User Profile: MEDIUM_RECTANGLE in post list (after 5th post) + BANNER pinned bottom
 - Post Detail: MEDIUM_RECTANGLE between post and comments thread
-- Web build: stub renders nothing
+- Search: AdCard injected after 5th result
+- Interstitial: platform-split `src/lib/interstitialAd.ts` (web stub) / `.native.ts` (real impl); preloaded on FeedScreen mount
+- Web build: stubs render nothing
+
+---
+
+## Social Features
+
+- **Repost** — repeat icon in PostCard footer (not shown on own posts or reposts). Alert confirm → writes `type: "repost"` post doc with original post metadata.
+- **Report Post** — long-press (500ms) any PostCard → Alert with Spam / Hate / Misinformation reasons → writes to `reports/` collection.
+- **Report User** — "⋯" button in UserProfileScreen topBar → Alert with Spam / Hate / Impersonation reasons → writes to `reports/` collection.
+- **Telemetry events tracked**: `like`, `follow`, `video_open`, `post_view`, `repost`, `report_post`, `report_user`
+- **Telemetry consent wired**: AppNavigator reads `profile.telemetryConsent` on profile load and calls `setTelemetryConsent()`.
 
 ---
 
@@ -153,7 +173,7 @@ YouTube channel accounts (Formant Audio, Hospital Records, Perfect Circuit) inge
 
 1. **YouTube channel accounts have no user profiles** — Hospital Records, Perfect Circuit, Formant Audio channel posts show in feed but can't be followed or viewed as a profile. Need `users/` docs seeded (NEWFUNCTIONALITYADDON.MD item 3).
 2. **No notifications** — `commentCount` and `followersCount` update in real time but no push notifications or in-app notification feed.
-3. **No search** — no way to find users or content.
-4. **Google Sign-In not wired** — `GoogleAuthProvider` exported from `firebase.ts` but no button; requires `expo-auth-session` + `expo-web-browser` install.
+3. **Google Sign-In not wired** — `GoogleAuthProvider` exported from `firebase.ts` but no button; requires `expo-auth-session` + `expo-web-browser` install.
+4. **TOS consent bypass via Google Sign-In** — `needsOnboarding` in AppNavigator gates on `!profile?.displayName`, but Google accounts carry a display name automatically. A Google user would skip OnboardingScreen entirely, bypassing the TOS and telemetry PSA. Fix: gate on `!profile?.tosAcceptedAt` instead. Must be fixed in the same change as Google Sign-In. See `GOOGLESIGNINADDON.MD` Plan 2 Phase 2.
 5. **`android_app_id` not set in `app.json`** for `react-native-google-mobile-ads` — will crash in production builds.
 6. **Feed filter uses client-side filter** — loads last 100 posts then filters locally. Fine at current scale; revisit when post volume grows past ~500/day or following count exceeds ~25 (Firestore `in` limit).

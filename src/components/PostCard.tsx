@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Pressable,
@@ -12,6 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
+  addDoc,
+  collection,
   doc,
   getDoc,
   setDoc,
@@ -22,6 +25,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { toggleFollow } from "../lib/followUser";
+import { trackEvent } from "../lib/telemetry";
 import { RootStackParamList } from "../navigation/AppNavigator";
 
 const ACCENT = "#00e6e6";
@@ -29,7 +33,7 @@ const ACCENT = "#00e6e6";
 export interface Post {
   id: string;
   uid: string;
-  type: "text" | "video" | "youtube_video";
+  type: "text" | "video" | "youtube_video" | "repost";
   content?: string;
   videoId?: string;
   title?: string;
@@ -56,9 +60,11 @@ interface Props {
   following?: Set<string>;
   /** When true, tapping the post body does NOT navigate to PostDetail (already on detail screen) */
   disablePostTap?: boolean;
+  /** Optional wrapper called instead of direct navigation when tapping the post — used for interstitial ads */
+  onPostPress?: (navigate: () => void) => void;
 }
 
-export default function PostCard({ post, following, disablePostTap }: Props) {
+export default function PostCard({ post, following, disablePostTap, onPostPress }: Props) {
   const uid             = auth.currentUser?.uid;
   const navigation      = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [liked,       setLiked]       = useState(false);
@@ -86,6 +92,7 @@ export default function PostCard({ post, following, disablePostTap }: Props) {
       setLikeCount(c => c + 1);
       await setDoc(likeRef, { uid, likedAt: serverTimestamp() });
       await updateDoc(postRef, { likes: increment(1) });
+      trackEvent("like", { postId: post.id });
     }
   }, [liked, post.id, uid]);
 
@@ -97,14 +104,18 @@ export default function PostCard({ post, following, disablePostTap }: Props) {
     setFollowBusy(true);
     try {
       await toggleFollow(uid, post.uid, isFollowing);
+      if (!isFollowing) trackEvent("follow", { targetUid: post.uid });
     } finally {
       setFollowBusy(false);
     }
   }, [uid, post.uid, isOwnPost, isFollowing]);
 
   const openVideo = useCallback(() => {
-    if (post.videoId) Linking.openURL(`https://www.youtube.com/watch?v=${post.videoId}`);
-  }, [post.videoId]);
+    if (post.videoId) {
+      trackEvent("video_open", { videoId: post.videoId, postId: post.id });
+      Linking.openURL(`https://www.youtube.com/watch?v=${post.videoId}`);
+    }
+  }, [post.videoId, post.id]);
 
   const goToAuthor = useCallback(() => {
     if (!post.uid) return;
@@ -113,13 +124,68 @@ export default function PostCard({ post, following, disablePostTap }: Props) {
 
   const goToPost = useCallback(() => {
     if (disablePostTap) return;
-    navigation.push("PostDetail", { post });
-  }, [navigation, post, disablePostTap]);
+    trackEvent("post_view", { postId: post.id });
+    const navigate = () => navigation.push("PostDetail", { post });
+    if (onPostPress) {
+      onPostPress(navigate);
+    } else {
+      navigate();
+    }
+  }, [navigation, post, disablePostTap, onPostPress]);
+
+  const reportPost = useCallback(() => {
+    if (!uid) return;
+    const doReport = async (reason: string) => {
+      await addDoc(collection(db, "reports"), {
+        type: "post",
+        postId: post.id,
+        reportedUid: post.uid,
+        reportedBy: uid,
+        reason,
+        createdAt: serverTimestamp(),
+      });
+      trackEvent("report_post", { postId: post.id, reason });
+      Alert.alert("Reported", "Thanks — we'll review this post.");
+    };
+    Alert.alert("Report Post", "Why are you reporting this?", [
+      { text: "Spam",              onPress: () => doReport("spam") },
+      { text: "Hate / Harassment", onPress: () => doReport("harassment") },
+      { text: "Misinformation",    onPress: () => doReport("misinformation") },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }, [uid, post.id, post.uid]);
+
+  const handleRepost = useCallback(() => {
+    if (!uid) return;
+    const me = auth.currentUser!;
+    Alert.alert("Repost", "Share this post to your feed?", [
+      {
+        text: "Repost",
+        onPress: async () => {
+          await addDoc(collection(db, "posts"), {
+            uid,
+            type: "repost",
+            originalPostId: post.id,
+            originalAuthorName: post.authorName,
+            originalContent: post.content,
+            authorName: me.displayName || "Unknown",
+            authorPhotoURL: me.photoURL || null,
+            likes: 0,
+            commentCount: 0,
+            createdAt: serverTimestamp(),
+          });
+          trackEvent("repost", { postId: post.id });
+          Alert.alert("Reposted", "Added to your feed.");
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }, [uid, post]);
 
   const initial = (post.authorName || "?")[0].toUpperCase();
 
   return (
-    <Pressable onPress={goToPost} style={styles.card}>
+    <Pressable onPress={goToPost} onLongPress={reportPost} delayLongPress={500} style={styles.card}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={goToAuthor} style={styles.authorTap}>
@@ -180,6 +246,11 @@ export default function PostCard({ post, following, disablePostTap }: Props) {
           <Ionicons name="chatbubble-outline" size={18} color="#555" />
           {post.commentCount > 0 && <Text style={styles.footerCount}>{post.commentCount}</Text>}
         </Pressable>
+        {!isOwnPost && post.type !== "repost" && (
+          <Pressable style={styles.footerBtn} onPress={handleRepost}>
+            <Ionicons name="repeat-outline" size={19} color="#555" />
+          </Pressable>
+        )}
       </View>
     </Pressable>
   );

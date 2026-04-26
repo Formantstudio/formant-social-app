@@ -18,12 +18,29 @@ const firebaseConfig = {
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
+// Set debug token before init — Firebase intercepts this on all platforms.
+// Web uses EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN, native uses EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN_NATIVE.
+// Register the native token in Firebase Console → App Check → Android/iOS app → Manage debug tokens.
+const debugToken =
+  Platform.OS === "web"
+    ? process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN
+    : process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN_NATIVE;
+
+if (debugToken) {
+  (globalThis as any).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+}
+
+// App Check — web uses ReCaptcha; native uses the debug token above until
+// Play Integrity (Android) / DeviceCheck (iOS) providers are wired in.
 if (Platform.OS === "web") {
-  // Debug token: Firebase will log the generated token to the console.
-  // Copy it and register it in Firebase Console → App Check → your web app → Manage debug tokens.
-  (globalThis as any).FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN || true;
   initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider(process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY || "debug"),
+    isTokenAutoRefreshEnabled: true,
+  });
+} else if (debugToken) {
+  // Native debug token path — swap for PlayIntegrityProvider / DeviceCheckProvider in production
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider("debug"),
     isTokenAutoRefreshEnabled: true,
   });
 }

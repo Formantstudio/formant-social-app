@@ -2,7 +2,7 @@
   "expo": {
     "name": "Formant Social",
     "slug": "formant-social-app",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "dark",
@@ -20,6 +20,7 @@
       }
     },
     "android": {
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#0a0a0a"

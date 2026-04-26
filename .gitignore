@@ -41,6 +41,12 @@ google-play-key.json
 # typescript
 *.tsbuildinfo
 
+# planning docs
+*.MD
+!README.MD
+.env.example
+newError.txt
+
 # generated native folders
 /ios
 /android

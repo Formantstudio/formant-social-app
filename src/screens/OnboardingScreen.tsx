@@ -46,10 +46,12 @@ interface OnboardingData {
 // ─── Step 0: TOS + Telemetry PSA ───────────────────────────────────────────
 
 function TosScreen({ onAccept, onDecline }: { onAccept: () => void; onDecline: () => void }) {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy]   = useState(false);
+  const [error, setError] = useState("");
 
   async function handleAccept() {
     setBusy(true);
+    setError("");
     try {
       const user = auth.currentUser!;
       await setDoc(doc(db, "users", user.uid), {
@@ -59,8 +61,9 @@ function TosScreen({ onAccept, onDecline }: { onAccept: () => void; onDecline: (
         telemetryUpdatedAt: serverTimestamp(),
       }, { merge: true });
       onAccept();
-    } catch (e) {
+    } catch (e: any) {
       console.error("TOS write failed:", e);
+      setError(`Save failed: ${e?.code || e?.message || "unknown error"}`);
       setBusy(false);
     }
   }
@@ -96,6 +99,8 @@ function TosScreen({ onAccept, onDecline }: { onAccept: () => void; onDecline: (
           You can turn off data collection at any time in Settings.
         </Text>
       </View>
+
+      {!!error && <Text style={styles.error}>{error}</Text>}
 
       <Pressable
         style={[styles.button, busy && { opacity: 0.7 }]}

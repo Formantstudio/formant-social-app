@@ -41,11 +41,12 @@ export default function VerifyEmailScreen() {
     setChecking(true);
     try {
       await auth.currentUser.reload();
-      if (!auth.currentUser.emailVerified) {
+      if (auth.currentUser.emailVerified) {
+        // Force token refresh so onIdTokenChanged fires and AppNavigator re-routes
+        await auth.currentUser.getIdToken(true);
+      } else {
         setMessage("Email not verified yet. Check your inbox or request a new link.");
       }
-      // If verified, onIdTokenChanged in useAuthState fires automatically
-      // and AppNavigator re-routes — no explicit navigation needed here.
     } catch {
       setMessage("Could not check status. Try again.");
     } finally {
